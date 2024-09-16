@@ -130,7 +130,7 @@ impl SchemaType<'_> {
             if !primitive {
                 primitive = matches!(
                     name,
-                    "Date" | "PrimitiveDateTime" | "OffsetDateTime" | "Duration"
+                    "Date" | "Time" | "PrimitiveDateTime" | "OffsetDateTime" | "Duration"
                 );
             }
 
@@ -267,6 +267,11 @@ impl ToTokensDiagnostics for SchemaType<'_> {
                 schema_type_tokens(tokens, SchemaTypeInner::String, self.nullable)
             }
 
+            #[cfg(feature = "time")]
+            "Time" | "PrimitiveDateTime" | "OffsetDateTime" => {
+                schema_type_tokens(tokens, SchemaTypeInner::String, self.nullable)
+            }
+
             #[cfg(feature = "decimal")]
             "Decimal" => schema_type_tokens(tokens, SchemaTypeInner::String, self.nullable),
 
@@ -285,10 +290,6 @@ impl ToTokensDiagnostics for SchemaType<'_> {
             #[cfg(feature = "url")]
             "Url" => schema_type_tokens(tokens, SchemaTypeInner::String, self.nullable),
 
-            #[cfg(feature = "time")]
-            "PrimitiveDateTime" | "OffsetDateTime" => {
-                schema_type_tokens(tokens, SchemaTypeInner::String, self.nullable)
-            }
             _ => schema_type_tokens(tokens, SchemaTypeInner::Object, self.nullable),
         };
 
@@ -379,7 +380,7 @@ impl Type<'_> {
 
             #[cfg(feature = "chrono")]
             if !known_format {
-                known_format = matches!(name, "DateTime" | "Date" | "NaiveDate" | "NaiveDateTime");
+                known_format = matches!(name, "DateTime" | "Date" | "NaiveDate" | "NaiveTime" | "NaiveDateTime");
             }
 
             #[cfg(feature = "decimal_float")]
@@ -404,7 +405,7 @@ impl Type<'_> {
 
             #[cfg(feature = "time")]
             if !known_format {
-                known_format = matches!(name, "Date" | "PrimitiveDateTime" | "OffsetDateTime");
+                known_format = matches!(name, "Date" | "Time" | "PrimitiveDateTime" | "OffsetDateTime");
             }
 
             known_format
@@ -462,6 +463,9 @@ impl ToTokensDiagnostics for Type<'_> {
             "NaiveDate" => tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::Date) }),
 
             #[cfg(feature = "chrono")]
+            "NaiveTime" => tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::Time) }),
+
+            #[cfg(feature = "chrono")]
             "DateTime" => tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::DateTime) }),
 
             #[cfg(feature = "chrono")]
@@ -469,6 +473,14 @@ impl ToTokensDiagnostics for Type<'_> {
 
             #[cfg(any(feature = "chrono", feature = "time"))]
             "Date" => tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::Date) }),
+
+            #[cfg(feature = "time")]
+            "Time" => tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::Time) }),
+
+            #[cfg(feature = "time")]
+            "PrimitiveDateTime" | "OffsetDateTime" => {
+                tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::DateTime) })
+            }
 
             #[cfg(feature = "decimal_float")]
             "Decimal" => tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::Double) }),
@@ -482,10 +494,6 @@ impl ToTokensDiagnostics for Type<'_> {
             #[cfg(feature = "url")]
             "Url" => tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::Uri) }),
 
-            #[cfg(feature = "time")]
-            "PrimitiveDateTime" | "OffsetDateTime" => {
-                tokens.extend(quote! { utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::KnownFormat::DateTime) })
-            }
             _ => (),
         };
 
@@ -516,6 +524,7 @@ pub enum Variant {
     Byte,
     Binary,
     Date,
+    Time,
     DateTime,
     Password,
     #[cfg(feature = "uuid")]
@@ -537,6 +546,7 @@ impl Parse for Variant {
             "Byte",
             "Binary",
             "Date",
+            "Time",
             "DateTime",
             "Password",
             #[cfg(feature = "uuid")]
@@ -591,6 +601,7 @@ impl Parse for Variant {
                 "Byte" => Ok(Self::Byte),
                 "Binary" => Ok(Self::Binary),
                 "Date" => Ok(Self::Date),
+                "Time" => Ok(Self::Time),
                 "DateTime" => Ok(Self::DateTime),
                 "Password" => Ok(Self::Password),
                 #[cfg(feature = "uuid")]
@@ -652,6 +663,9 @@ impl ToTokens for Variant {
             ))),
             Self::Date => tokens.extend(quote!(utoipa::openapi::SchemaFormat::KnownFormat(
                 utoipa::openapi::KnownFormat::Date
+            ))),
+            Self::Time => tokens.extend(quote!(utoipa::openapi::SchemaFormat::KnownFormat(
+                utoipa::openapi::KnownFormat::Time
             ))),
             Self::DateTime => tokens.extend(quote!(utoipa::openapi::SchemaFormat::KnownFormat(
                 utoipa::openapi::KnownFormat::DateTime
