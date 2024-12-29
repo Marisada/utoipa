@@ -694,6 +694,18 @@ pub struct ComponentSchemaProps<'c> {
     pub description: Option<&'c ComponentDescription<'c>>,
 }
 
+impl ComponentSchemaProps<'_> {
+    fn set_nullable(&mut self) {
+        if !self
+            .features
+            .iter()
+            .any(|feature| matches!(feature, Feature::Nullable(_)))
+        {
+            self.features.push(Nullable::new().into());
+        }
+    }
+}
+
 #[cfg_attr(feature = "debug", derive(Debug))]
 pub enum ComponentDescription<'c> {
     CommentAttributes(&'c CommentAttributes),
@@ -750,11 +762,33 @@ pub struct ComponentSchema {
 }
 
 impl ComponentSchema {
-    pub fn new(
+    pub fn for_params(
+        mut schema_props: ComponentSchemaProps,
+        option_is_nullable: bool,
+    ) -> Result<Self, Diagnostics> {
+        // Add nullable feature if not already exists.
+        // Option is always nullable, except when used in query parameters.
+        if schema_props.type_tree.is_option() && option_is_nullable {
+            schema_props.set_nullable()
+        }
+
+        Self::new_inner(schema_props)
+    }
+
+    pub fn new(mut schema_props: ComponentSchemaProps) -> Result<Self, Diagnostics> {
+        // Add nullable feature if not already exists. Option is always nullable
+        if schema_props.type_tree.is_option() {
+            schema_props.set_nullable();
+        }
+
+        Self::new_inner(schema_props)
+    }
+
+    fn new_inner(
         ComponentSchemaProps {
             container,
             type_tree,
-            mut features,
+            features,
             description,
         }: ComponentSchemaProps,
     ) -> Result<Self, Diagnostics> {
@@ -791,13 +825,6 @@ impl ComponentSchema {
                 description,
             )?,
             Some(GenericType::Option) => {
-                // Add nullable feature if not already exists. Option is always nullable
-                if !features
-                    .iter()
-                    .any(|feature| matches!(feature, Feature::Nullable(_)))
-                {
-                    features.push(Nullable::new().into());
-                }
                 let child = type_tree
                     .children
                     .as_ref()
@@ -1216,6 +1243,17 @@ impl ComponentSchema {
                     let title_tokens = as_tokens_or_diagnostics!(&title);
 
                     if is_inline {
+                        let schema_type = SchemaType {
+                            path: Cow::Borrowed(&rewritten_path),
+                            nullable,
+                        };
+                        let index =
+                            if !schema_type.is_primitive() || type_tree.generic_type.is_none() {
+                                container.generics.get_generic_type_param_index(type_tree)
+                            } else {
+                                None
+                            };
+
                         object_schema_reference.is_inline = true;
                         let items_tokens = if let Some(children) = &type_tree.children {
                             schema_references.extend(Self::compose_child_references(children)?);
@@ -1223,8 +1261,21 @@ impl ComponentSchema {
                             let composed_generics =
                                 Self::compose_generics(children, container.generics)?
                                     .collect::<Array<_>>();
-                            quote_spanned! {type_path.span()=>
-                                <#rewritten_path as utoipa::__dev::ComposeSchema>::compose(#composed_generics.to_vec())
+
+                            if index.is_some() {
+                                quote_spanned! {type_path.span()=>
+                                    let _ = <#rewritten_path as utoipa::PartialSchema>::schema;
+
+                                    if let Some(composed) = generics.get_mut(#index) {
+                                        composed.clone()
+                                    } else {
+                                        <#rewritten_path as utoipa::PartialSchema>::schema()
+                                    }
+                                }
+                            } else {
+                                quote_spanned! {type_path.span()=>
+                                    <#rewritten_path as utoipa::__dev::ComposeSchema>::compose(#composed_generics.to_vec())
+                                }
                             }
                         } else {
                             quote_spanned! {type_path.span()=>
@@ -1255,8 +1306,18 @@ impl ComponentSchema {
 
                         schema.to_tokens(tokens);
                     } else {
-                        let index = container.generics.get_generic_type_param_index(type_tree);
-                        // only set schema references tokens for concrete non generic types
+                        let schema_type = SchemaType {
+                            path: Cow::Borrowed(&rewritten_path),
+                            nullable,
+                        };
+                        let index =
+                            if !schema_type.is_primitive() || type_tree.generic_type.is_none() {
+                                container.generics.get_generic_type_param_index(type_tree)
+                            } else {
+                                None
+                            };
+
+                        // forcibly inline primitive type parameters, otherwise use references
                         if index.is_none() {
                             let reference_tokens = if let Some(children) = &type_tree.children {
                                 let composed_generics = Self::compose_generics(
@@ -1281,7 +1342,7 @@ impl ComponentSchema {
                                         let _ = <#rewritten_path as utoipa::PartialSchema>::schema;
 
                                         if let Some(composed) = generics.get_mut(#index) {
-                                            std::mem::take(composed)
+                                            composed.clone()
                                         } else {
                                             #item_tokens.into()
                                         }

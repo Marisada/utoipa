@@ -162,6 +162,10 @@ static CONFIG: once_cell::sync::Lazy<utoipa_config::Config> =
 ///   _`Value`_ will be rendered as any OpenAPI value (i.e. no `type` restriction).
 /// * `inline` If the type of this field implements [`ToSchema`][to_schema], then the schema definition
 ///   will be inlined. **warning:** Don't use this for recursive data types!
+///   
+///   **Note!**<br>Using `inline` with generic arguments might lead to incorrect spec generation.
+///   This is due to the fact that during compilation we cannot know how to treat the generic
+///   argument and there is difference whether it is a primitive type or another generic type.
 /// * `required = ...` Can be used to enforce required status for the field. [See
 ///   rules][derive@ToSchema#field-nullability-and-required-rules]
 /// * `nullable` Defines property is nullable (note this is different to non-required).
@@ -194,7 +198,7 @@ static CONFIG: once_cell::sync::Lazy<utoipa_config::Config> =
 /// * `content_encoding = ...` Can be used to define content encoding used for underlying schema object.
 ///   See [`Object::content_encoding`][schema_object_encoding]
 /// * `content_media_type = ...` Can be used to define MIME type of a string for underlying schema object.
-///   See [`Object::content_media_type`][schema_object_`media_type]
+///   See [`Object::content_media_type`][schema_object_media_type]
 ///* `ignore` or `ignore = ...` Can be used to skip the field from being serialized to OpenAPI schema. It accepts either a literal `bool` value
 ///   or a path to a function that returns `bool` (`Fn() -> bool`).
 ///* `no_recursion` Is used to break from recursion in case of looping schema tree e.g. `Pet` ->
@@ -425,6 +429,10 @@ static CONFIG: once_cell::sync::Lazy<utoipa_config::Config> =
 ///
 /// * `inline` If the type of this field implements [`ToSchema`][to_schema], then the schema definition
 ///   will be inlined. **warning:** Don't use this for recursive data types!
+///
+///   **Note!**<br>Using `inline` with generic arguments might lead to incorrect spec generation.
+///   This is due to the fact that during compilation we cannot know how to treat the generic
+///   argument and there is difference whether it is a primitive type or another generic type.
 ///
 ///   _**Inline unnamed field variant schemas.**_
 ///   ```rust
@@ -3025,7 +3033,7 @@ pub fn into_responses(input: TokenStream) -> TokenStream {
 ///             .required("name")
 ///     )
 /// ));
-/// # assert_json_diff::assert_json_eq!(serde_json::to_value(&schema).unwrap(), serde_json::to_value(&generated).unwrap());
+/// # insta::assert_json_snapshot!("schema", &schema);
 /// ```
 ///
 /// [primitive]: https://doc.rust-lang.org/std/primitive/index.html
@@ -3333,14 +3341,14 @@ impl ToTokens for AnyValue {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         match self {
             Self::Json(json) => tokens.extend(quote! {
-                serde_json::json!(#json)
+                utoipa::gen::serde_json::json!(#json)
             }),
             Self::String(string) => string.to_tokens(tokens),
             Self::DefaultTrait {
                 struct_ident,
                 field_ident,
             } => tokens.extend(quote! {
-                serde_json::to_value(#struct_ident::default().#field_ident).unwrap()
+                utoipa::gen::serde_json::to_value(#struct_ident::default().#field_ident).unwrap()
             }),
         }
     }

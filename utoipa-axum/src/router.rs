@@ -320,8 +320,26 @@ where
     ///     .nest("/api", search_router);
     /// ```
     pub fn nest(self, path: &str, router: OpenApiRouter<S>) -> Self {
-        let api = self.1.nest(path_template(path), router.1);
-        let path = if path.is_empty() { "/" } else { path };
+        // from axum::routing::path_router::path_for_nested_route
+        // method is private, so we need to replicate it here
+        fn path_for_nested_route(prefix: &str, path: &str) -> String {
+            let path = if path.is_empty() { "/" } else { path };
+            debug_assert!(prefix.starts_with('/'));
+
+            if prefix.ends_with('/') {
+                format!("{prefix}{}", path.trim_start_matches('/'))
+            } else if path == "/" {
+                prefix.into()
+            } else {
+                format!("{prefix}{path}")
+            }
+        }
+
+        let api = self.1.nest_with_path_composer(
+            path_for_nested_route(&path_template(path), "/"),
+            router.1,
+            path_for_nested_route,
+        );
         let router = self.0.nest(&colonized_params(path), router.0);
 
         Self(router, api)

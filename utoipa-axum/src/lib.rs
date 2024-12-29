@@ -123,7 +123,7 @@ pub use paste::paste;
 /// ```
 #[macro_export]
 macro_rules! routes {
-    ( $handler:path $(, $tail:path)* ) => {
+    ( $handler:path $(, $tail:path)* $(,)? ) => {
         {
             use $crate::PathItemExt;
             let mut paths = utoipa::openapi::path::Paths::new();
@@ -253,6 +253,12 @@ mod tests {
     }
 
     #[test]
+    fn routes_with_trailing_comma_compiles() {
+        let _: OpenApiRouter =
+            OpenApiRouter::new().routes(routes!(get_user, post_user, delete_user,));
+    }
+
+    #[test]
     fn openapi_router_with_openapi() {
         use utoipa::OpenApi;
 
@@ -313,7 +319,7 @@ mod tests {
         let paths = router.to_openapi().paths;
         let expected_paths = utoipa::openapi::path::PathsBuilder::new()
             .path(
-                "/api/customer/",
+                "/api/customer",
                 utoipa::openapi::PathItem::new(
                     utoipa::openapi::path::HttpMethod::Get,
                     utoipa::openapi::path::OperationBuilder::new()

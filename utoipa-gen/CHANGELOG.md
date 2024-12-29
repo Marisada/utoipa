@@ -1,6 +1,33 @@
 # Changelog - utoipa-gen
 
-## 5.2.0 - Nov 2024
+## Unreleased
+
+### Changed
+
+* Replace `assert-json-diff` with snapshot testing via `insta` (https://github.com/juhaku/utoipa/pull/1253)
+* scripts/test.sh: Fix `auto_into_responses` feature declaration (https://github.com/juhaku/utoipa/pull/1252)
+
+## 5.3.0 - Dec 19 2024
+
+### Fixed
+
+* Fix tagged enum with flatten fields (https://github.com/juhaku/utoipa/pull/1208)
+
+### Added
+
+* Add `encoding` support for `request_body` (https://github.com/juhaku/utoipa/pull/1237)
+* Add support for `#[schema(pattern = "...")]` on new type structs (https://github.com/juhaku/utoipa/pull/1241)
+
+### Changed
+
+* Adjust params code to not set `nullable` on `Option` for `Query` params (https://github.com/juhaku/utoipa/pull/1248)
+* Use `insta` for snapshot testing (https://github.com/juhaku/utoipa/pull/1247)
+* Make `parse_named_attributes` a method of `MediaTypeAttr` (https://github.com/juhaku/utoipa/pull/1236)
+* Use a re-exported `serde_json` dependency in macros instead of implicitly requiring it as dependency in end projects (https://github.com/juhaku/utoipa/pull/1243)
+* Simplified `ToTokensDiagnostics` for `request_body` (https://github.com/juhaku/utoipa/pull/1235)
+* `Info::from_env()` sets `License::identifier` (https://github.com/juhaku/utoipa/pull/1233)
+
+## 5.2.0 - Nov 2 2024
 
 ### Fixed
 
@@ -454,7 +481,7 @@
 * Add support for multiple examples in response (https://github.com/juhaku/utoipa/pull/403)
 * Add Example type to OpenApi types (https://github.com/juhaku/utoipa/pull/402)
 * Add derive info support for derive OpenApi (https://github.com/juhaku/utoipa/pull/400)
-* Add `merge` functionality for `OpenApi` (https://github.com/juhaku/utoipa/pull/397) 
+* Add `merge` functionality for `OpenApi` (https://github.com/juhaku/utoipa/pull/397)
 * Add derive servers attribute for OpenApi (https://github.com/juhaku/utoipa/pull/395)
 * Add support for unit sructs (https://github.com/juhaku/utoipa/pull/392)
 * Add support for `schema_with` custom fn reference (https://github.com/juhaku/utoipa/pull/390)

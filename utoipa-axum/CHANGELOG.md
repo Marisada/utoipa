@@ -1,5 +1,16 @@
 # Changelog - utoipa-axum
 
+## 0.1.3 - Dec 19 2024
+
+### Changed
+
+* Allow trailing comma in `routes!()` macro (https://github.com/juhaku/utoipa/pull/1238)
+
+### Fixed
+
+* Fix axum path nesting (https://github.com/juhaku/utoipa/pull/1231)
+* Fix diverging axum route and openapi spec (https://github.com/juhaku/utoipa/pull/1199)
+
 ## 0.1.2 - Oct 29 2024
 
 ### Changed

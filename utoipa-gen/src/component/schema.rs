@@ -9,7 +9,10 @@ use syn::{
 
 use crate::{
     as_tokens_or_diagnostics,
-    component::features::attributes::{Rename, Title, ValueType},
+    component::features::{
+        attributes::{Rename, Title, ValueType},
+        validation::Pattern,
+    },
     doc_comment::CommentAttributes,
     parse_utils::LitBoolOrExprPath,
     Array, AttributesExt, Diagnostics, OptionExt, ToTokensDiagnostics,
@@ -278,7 +281,7 @@ impl UnitStructVariant {
         let mut tokens = quote! {
             utoipa::openapi::Object::builder()
                 .schema_type(utoipa::openapi::schema::SchemaType::AnyValue)
-                .default(Some(serde_json::Value::Null))
+                .default(Some(utoipa::gen::serde_json::Value::Null))
         };
 
         let mut features = features::parse_schema_features_with(root.attributes, |input| {
@@ -313,6 +316,7 @@ pub struct NamedStructSchema {
     pub schema_as: Option<As>,
     fields_references: Vec<SchemaReference>,
     bound: Option<Bound>,
+    is_all_of: bool,
 }
 
 #[cfg_attr(feature = "debug", derive(Debug))]
@@ -385,6 +389,7 @@ impl NamedStructSchema {
             .flatten()
             .collect::<Vec<_>>();
 
+        let mut object_tokens_empty = true;
         let object_tokens = fields_vec
             .iter()
             .filter(|(_, field_rules, ..)| !field_rules.skip && !field_rules.flatten)
@@ -415,6 +420,7 @@ impl NamedStructSchema {
                     _field,
                     field_schema,
                 )| {
+                    object_tokens_empty = false;
                     let rename_to = field_rules
                         .rename
                         .as_deref()
@@ -513,8 +519,13 @@ impl NamedStructSchema {
                 tokens.extend(quote! {
                     utoipa::openapi::AllOfBuilder::new()
                         #flattened_tokens
-                    .item(#object_tokens)
+
                 });
+                if !object_tokens_empty {
+                    tokens.extend(quote! {
+                        .item(#object_tokens)
+                    });
+                }
                 true
             }
         } else {
@@ -552,6 +563,7 @@ impl NamedStructSchema {
             schema_as,
             fields_references,
             bound,
+            is_all_of: all_of,
         })
     }
 
@@ -732,6 +744,20 @@ impl UnnamedStructSchema {
                     ));
                 }
             }
+            let pattern = if let Some(pattern) =
+                pop_feature!(features => Feature::Pattern(_) as Option<Pattern>)
+            {
+                // Pattern Attribute is only allowed for unnamed structs with single field
+                if fields_len > 1 {
+                    return Err(Diagnostics::with_span(
+                        pattern.span(),
+                        "Pattern attribute is not allowed for unnamed structs with multiple fields",
+                    ));
+                }
+                Some(pattern.to_token_stream())
+            } else {
+                None
+            };
 
             let comments = CommentAttributes::from_attributes(root.attributes);
             let description = description
@@ -754,6 +780,11 @@ impl UnnamedStructSchema {
             })?;
 
             tokens.extend(schema.to_token_stream());
+            if let Some(pattern) = pattern {
+                tokens.extend(quote! {
+                    .pattern(Some(#pattern))
+                });
+            }
             schema_references = std::mem::take(&mut schema.schema_references);
         } else {
             // Struct that has multiple unnamed fields is serialized to array by default with serde.

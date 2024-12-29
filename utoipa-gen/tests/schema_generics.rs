@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::marker::PhantomData;
 
+use insta::assert_json_snapshot;
 use serde::Serialize;
 use utoipa::openapi::{Info, RefOr, Schema};
 use utoipa::{schema, OpenApi, PartialSchema, ToSchema};
@@ -21,6 +22,50 @@ fn generic_schema_custom_bound() {
     fn assert_is_to_schema<T: ToSchema>() {}
 
     assert_is_to_schema::<Type<NoToSchema>>();
+}
+
+#[test]
+fn generic_request_body_schema() {
+    #![allow(unused)]
+
+    #[derive(ToSchema)]
+    #[schema(as = path::MyType<T>)]
+    struct Type<T> {
+        #[schema(inline)]
+        t: T,
+    }
+
+    #[derive(ToSchema)]
+    struct Person<T: Sized, P> {
+        field: T,
+        #[schema(inline)]
+        t: P,
+    }
+
+    #[utoipa::path(
+        get,
+        path = "/handler",
+        request_body = inline(Person<String, Type<i32>>),
+    )]
+    async fn handler() {}
+
+    #[derive(OpenApi)]
+    #[openapi(
+        components(
+            schemas(
+                Person::<String, Type<i32>>,
+            )
+        ),
+        paths(
+            handler
+        )
+    )]
+    struct ApiDoc;
+
+    let mut doc = ApiDoc::openapi();
+    doc.info = Info::new("title", "version");
+
+    assert_json_snapshot!(doc);
 }
 
 #[test]
@@ -89,11 +134,7 @@ fn generic_schema_full_api() {
     let mut doc = ApiDoc::openapi();
     doc.info = Info::new("title", "version");
 
-    let actual = doc.to_pretty_json().expect("OpenApi is JSON serializable");
-    println!("{actual}");
-    let expected = include_str!("./testdata/schema_generics_openapi");
-
-    assert_eq!(expected.trim(), actual.trim());
+    assert_json_snapshot!(doc);
 }
 
 #[test]
@@ -107,6 +148,7 @@ fn schema_with_non_generic_root() {
 
     #[derive(ToSchema)]
     struct Bar<T> {
+        #[schema(inline)]
         value: T,
     }
 
@@ -122,11 +164,7 @@ fn schema_with_non_generic_root() {
     let mut api = ApiDoc::openapi();
     api.info = Info::new("title", "version");
 
-    let actual = api.to_pretty_json().expect("schema is JSON serializable");
-    println!("{actual}");
-    let expected = include_str!("./testdata/schema_non_generic_root_generic_references");
-
-    assert_eq!(actual.trim(), expected.trim())
+    assert_json_snapshot!(api);
 }
 
 #[test]
@@ -160,10 +198,8 @@ fn derive_generic_schema_enum_variants() {
 
     let mut api = Api::openapi();
     api.info = Info::new("title", "version");
-    let api_json = api.to_pretty_json().expect("OpenAPI is JSON serializable");
-    println!("{api_json}");
-    let expected = include_str!("./testdata/schema_generic_enum_variant_with_generic_type");
-    assert_eq!(expected.trim(), api_json.trim());
+
+    assert_json_snapshot!(api);
 }
 
 #[test]
@@ -219,10 +255,8 @@ fn derive_generic_schema_collect_recursive_schema_not_inlined() {
 
     let mut api = Api::openapi();
     api.info = Info::new("title", "version");
-    let api_json = api.to_pretty_json().expect("OpenAPI is JSON serializable");
-    println!("{api_json}");
-    let expected = include_str!("./testdata/schema_generic_collect_non_inlined_schema");
-    assert_eq!(expected.trim(), api_json.trim());
+
+    assert_json_snapshot!(api);
 }
 
 #[test]
@@ -231,6 +265,7 @@ fn high_order_types() {
 
     #[derive(ToSchema)]
     pub struct High<T> {
+        #[schema(inline)]
         high: T,
     }
 
@@ -251,10 +286,8 @@ fn high_order_types() {
 
     let mut api = Api::openapi();
     api.info = Info::new("title", "version");
-    let api_json = api.to_pretty_json().expect("OpenAPI is JSON serializable");
-    println!("{api_json}");
-    let expected = include_str!("./testdata/schema_high_order_types");
-    assert_eq!(expected.trim(), api_json.trim());
+
+    assert_json_snapshot!(api);
 }
 
 #[test]
@@ -279,11 +312,8 @@ fn rc_schema_high_order_types() {
 
     let mut api = Api::openapi();
     api.info = Info::new("title", "version");
-    let api_json = api.to_pretty_json().expect("OpenAPI is JSON serializable");
-    println!("{api_json}");
 
-    let expected = include_str!("./testdata/rc_schema_high_order_types");
-    assert_eq!(expected.trim(), api_json.trim());
+    assert_json_snapshot!(api);
 }
 
 #[test]
@@ -305,11 +335,8 @@ fn uuid_type_generic_argument() {
 
     let mut api = Api::openapi();
     api.info = Info::new("title", "version");
-    let api_json = api.to_pretty_json().expect("OpenAPI is JSON serializable");
-    println!("{api_json}");
 
-    let expected = include_str!("./testdata/uuid_type_generic_argument");
-    assert_eq!(expected.trim(), api_json.trim());
+    assert_json_snapshot!(api);
 }
 
 #[test]
