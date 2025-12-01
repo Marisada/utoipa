@@ -31,18 +31,6 @@ impl Validator for IsString<'_> {
     }
 }
 
-pub struct IsInteger<'a>(&'a SchemaType<'a>);
-
-impl Validator for IsInteger<'_> {
-    fn is_valid(&self) -> Result<(), &'static str> {
-        if self.0.is_integer() {
-            Ok(())
-        } else {
-            Err("can only be used with `integer` type")
-        }
-    }
-}
-
 pub struct IsVec<'a>(pub(super) &'a TypeTree<'a>);
 
 impl Validator for IsVec<'_> {
