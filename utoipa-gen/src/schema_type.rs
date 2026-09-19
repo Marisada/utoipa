@@ -113,7 +113,7 @@ impl SchemaType<'_> {
             if !primitive {
                 primitive = matches!(
                     name,
-                    "Date" | "PrimitiveDateTime" | "OffsetDateTime" | "Duration"
+                    "Date" | "Time" | "PrimitiveDateTime" | "OffsetDateTime" | "Duration"
                 );
             }
 
@@ -285,7 +285,7 @@ impl ToTokensDiagnostics for SchemaType<'_> {
             "Url" => schema_type_tokens(tokens, SchemaTypeInner::String, self.nullable),
 
             #[cfg(feature = "time")]
-            "PrimitiveDateTime" | "OffsetDateTime" => {
+            "Time" | "PrimitiveDateTime" | "OffsetDateTime" => {
                 schema_type_tokens(tokens, SchemaTypeInner::String, self.nullable)
             }
             #[cfg(feature = "jiff_0_2")]
@@ -322,6 +322,7 @@ pub enum KnownFormat {
     Byte,
     Binary,
     Date,
+    Time,
     DateTime,
     Duration,
     Password,
@@ -394,6 +395,9 @@ impl KnownFormat {
             "NaiveDate" => Self::Date,
 
             #[cfg(feature = "chrono")]
+            "NaiveTime" => Self::Time,
+
+            #[cfg(feature = "chrono")]
             "DateTime" | "NaiveDateTime" => Self::DateTime,
 
             #[cfg(any(feature = "chrono", feature = "time", feature = "jiff_0_2"))]
@@ -413,6 +417,9 @@ impl KnownFormat {
 
             #[cfg(feature = "url")]
             "Url" => Self::Uri,
+
+            #[cfg(feature = "time")]
+            "Time" => Self::Time,
 
             #[cfg(feature = "time")]
             "PrimitiveDateTime" | "OffsetDateTime" => Self::DateTime,
@@ -438,6 +445,7 @@ impl KnownFormat {
             "Byte",
             "Binary",
             "Date",
+            "Time",
             "DateTime",
             "Duration",
             "Password",
@@ -517,6 +525,7 @@ impl Parse for KnownFormat {
                 "Byte" => Ok(Self::Byte),
                 "Binary" => Ok(Self::Binary),
                 "Date" => Ok(Self::Date),
+                "Time" => Ok(Self::Time),
                 "DateTime" => Ok(Self::DateTime),
                 "Duration" => Ok(Self::Duration),
                 "Password" => Ok(Self::Password),
@@ -595,6 +604,9 @@ impl ToTokens for KnownFormat {
             ))),
             Self::Date => tokens.extend(quote!(utoipa::openapi::schema::SchemaFormat::KnownFormat(
                 utoipa::openapi::schema::KnownFormat::Date
+            ))),
+            Self::Time => tokens.extend(quote!(utoipa::openapi::schema::SchemaFormat::KnownFormat(
+                utoipa::openapi::schema::KnownFormat::Time
             ))),
             Self::DateTime => tokens.extend(quote!(utoipa::openapi::schema::SchemaFormat::KnownFormat(
                 utoipa::openapi::schema::KnownFormat::DateTime
@@ -748,7 +760,7 @@ impl PrimitiveType {
             }
 
             #[cfg(feature = "time")]
-            "PrimitiveDateTime" | "OffsetDateTime" => {
+            "Time" | "PrimitiveDateTime" | "OffsetDateTime" => {
                 syn::parse_quote!(String)
             }
 
